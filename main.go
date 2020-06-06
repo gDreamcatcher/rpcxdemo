@@ -31,8 +31,12 @@ func main() {
 		Server()
 	}else if *method == "client" {
 		Client()
-	}else {
+	}else if *method == "httpclient" {
+		HttpClient()
+	}else if *method == "httpserver" {
 		HttpServer()
+	}else {
+		panic("method should be in [server, client, httpclient, httpserver]")
 	}
 }
 
@@ -65,8 +69,13 @@ func Client(){
 	log.Printf("%d * %d = %d", args.A, args.B, reply.C)
 }
 
-func HttpClient(){
+func HttpClient() {
 	args := &pb.ProtoArgs{A: 10, B: 20}
+	reply := HttpToTcp(args)
+	log.Printf("%d * %d = %d", args.A, args.B, reply.C)
+}
+
+func HttpToTcp(args *pb.ProtoArgs) *pb.ProtoReply {
 	reply := &pb.ProtoReply{}
 
 	cc := codec.MsgpackCodec{}
@@ -93,7 +102,7 @@ func HttpClient(){
 		log.Fatal("failed to decode reply: ", err)
 	}
 
-	log.Printf("%d * %d = %d", args.A, args.B, reply.C)
+	return reply
 }
 
 func HttpServer(){
@@ -112,32 +121,7 @@ func CallMul(ctx *gin.Context){
 		panic(err)
 	}
 	args := &pb.ProtoArgs{A: int32(a), B: int32(b)}
-	reply := &pb.ProtoReply{}
-
-	cc := codec.MsgpackCodec{}
-	data, _ := cc.Encode(args)
-	req, err := http.NewRequest("POST", "http://127.0.0.1:8972/", bytes.NewReader(data))
-	if err != nil {
-		log.Fatal("failed to create request: ", err)
-	}
-	h := req.Header
-	h.Set(gateway.XMessageID, "10000")
-	h.Set(gateway.XMessageType, "0")
-	h.Set(gateway.XSerializeType, "3")
-	h.Set(gateway.XServicePath, "Arith")
-	h.Set(gateway.XServiceMethod, "Mul")
-
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		log.Fatal("failed to read response: ", err)
-	}
-	defer res.Body.Close()
-	replyData, err := ioutil.ReadAll(res.Body)
-	err = cc.Decode(replyData, reply)
-	if err != nil {
-		log.Fatal("failed to decode reply: ", err)
-	}
-
+	reply := HttpToTcp(args)
 	log.Printf("%d * %d = %d", args.A, args.B, reply.C)
 	ctx.JSON(http.StatusOK, gin.H{"status": "ok", "reply": reply.C})
 }
