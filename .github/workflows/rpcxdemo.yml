@@ -10,7 +10,7 @@ jobs:
 
   build:
     name: Build
-    runs-on: centos7
+    runs-on: ubuntu-latest
     steps:
     
       - name: Check Out Repo 
